@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="English Talk">
+<meta name="theme-color" content="#4285f4">
+<title>영어 대화 연습</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f4f8;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 100vh; min-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+  }
+  #app {
+    display: flex; flex-direction: column;
+    width: 100%; max-width: 480px;
+    height: 100vh; height: 100dvh;
+    background: #fff; border-radius: 0; overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10); border: none;
+    position: relative;
+  }
+  @media (min-width: 520px) {
+    body { padding: 16px; }
+    #app { height: 720px; border-radius: 16px; border: 1px solid #e5e5e5; }
+  }
+  #screen-select { display: flex; flex-direction: column; height: 100%; }
+  #screen-chat   { display: none; flex-direction: column; height: 100%; }
+
+  .app-header {
+    padding: 13px 16px; border-bottom: 1px solid #ebebeb;
+    display: flex; align-items: center; gap: 10px;
+    background: #fafafa; flex-shrink: 0;
+  }
+  .app-header h1 { font-size: 15px; font-weight: 600; color: #111; }
+  .back-btn { background: none; border: none; cursor: pointer; color: #666; font-size: 20px; padding: 2px 4px; border-radius: 6px; }
+  .back-btn:hover { background: #efefef; }
+  .end-btn { margin-left: auto; font-size: 12px; padding: 5px 12px; border: 1px solid #ddd; border-radius: 20px; background: none; cursor: pointer; color: #555; }
+  .end-btn:hover { background: #f5f5f5; }
+  .scenario-tag { font-size: 13px; color: #444; background: #f0f0f0; padding: 4px 10px; border-radius: 20px; }
+
+  .scenario-grid { padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; overflow-y: auto; flex: 1; }
+  .scenario-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 14px; padding: 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s; display: flex; flex-direction: column; gap: 5px; }
+  .scenario-card:hover { border-color: #4285f4; background: #f0f6ff; }
+  .scenario-icon { font-size: 26px; }
+  .scenario-title { font-size: 14px; font-weight: 600; color: #111; }
+  .scenario-desc { font-size: 12px; color: #777; line-height: 1.5; }
+
+  .level-bar { padding: 11px 16px; border-top: 1px solid #ebebeb; background: #fafafa; display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+  .level-bar > span { font-size: 12px; color: #777; }
+  .level-btn { font-size: 12px; padding: 4px 12px; border: 1px solid #ddd; border-radius: 20px; background: none; cursor: pointer; color: #555; transition: all 0.15s; }
+  .level-btn.active { background: #4285f4; color: #fff; border-color: #4285f4; }
+
+  .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* 말풍선 래퍼 */
+  .msg-wrap { display: flex; flex-direction: column; gap: 2px; max-width: 88%; }
+  .msg { display: flex; gap: 8px; align-items: flex-start; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg.user .msg-wrap { align-items: flex-end; }
+  .msg.ai  .msg-wrap { align-items: flex-start; }
+  .msg-avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .msg.ai  .msg-avatar { background: #dbeafe; }
+  .msg.user .msg-avatar { background: #d1fae5; }
+  .msg-bubble { padding: 9px 13px; border-radius: 14px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+  .msg.ai  .msg-bubble { background: #f3f4f6; color: #111; border-bottom-left-radius: 4px; }
+  .msg.user .msg-bubble { background: #4285f4; color: #fff; border-bottom-right-radius: 4px; }
+
+  /* TTS 버튼 (말풍선 아래) */
+  .tts-row { display: flex; gap: 4px; padding: 0 3px; }
+  .tts-btn {
+    background: none; border: none; cursor: pointer; color: #bbb;
+    font-size: 11px; padding: 2px 6px; border-radius: 6px;
+    display: flex; align-items: center; gap: 3px; transition: all 0.15s;
+  }
+  .tts-btn:hover { color: #4285f4; background: #f0f6ff; }
+  .tts-btn.playing { color: #4285f4; font-weight: 600; }
+  .tts-btn i { font-size: 13px; }
+
+  /* 인라인 피드백 */
+  .inline-feedback {
+    align-self: flex-end; max-width: 88%; margin-top: 2px;
+    padding: 7px 12px; border-radius: 10px;
+    font-size: 12px; line-height: 1.6;
+    animation: fadeIn 0.3s ease;
+  }
+  .inline-feedback.good { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+  .inline-feedback.warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+  .inline-feedback.bad  { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .inline-feedback .fb-row { display: flex; gap: 5px; margin-bottom: 2px; }
+  .inline-feedback .fb-row:last-child { margin-bottom: 0; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+  /* info 카드 */
+  .info-card { background: #f8f9fa; border: 1px solid #e8e8e8; border-left: 3px solid #34a853; border-radius: 10px; padding: 10px 13px; font-size: 13px; line-height: 1.6; color: #222; }
+  .info-card.blue  { border-left-color: #4285f4; }
+  .info-card.amber { border-left-color: #fbbc04; }
+  .info-card .card-label { font-size: 11px; font-weight: 600; color: #1a7340; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .info-card.blue  .card-label { color: #1a4fa0; }
+  .info-card.amber .card-label { color: #8a6200; }
+
+  /* 전체 재생 바 */
+  #play-all-bar {
+    display: none; align-items: center; gap: 8px;
+    padding: 8px 14px; background: #f0f6ff;
+    border-top: 1px solid #c7d9fa; flex-shrink: 0;
+  }
+  #play-all-bar.visible { display: flex; }
+  #play-all-btn { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 5px 13px; background: #4285f4; color: #fff; border: none; border-radius: 20px; cursor: pointer; }
+  #play-all-btn:hover { background: #3367d6; }
+  #stop-all-btn { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 5px 13px; background: none; color: #555; border: 1px solid #ddd; border-radius: 20px; cursor: pointer; }
+  #stop-all-btn:hover { background: #f5f5f5; }
+  #play-status { font-size: 12px; color: #4285f4; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* thinking */
+  .thinking { display: flex; gap: 5px; align-items: center; padding: 4px 2px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #aaa; animation: bounce 1.2s infinite; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+  /* 입력 */
+  .chat-input-area { padding: 10px 14px; border-top: 1px solid #ebebeb; background: #fafafa; flex-shrink: 0; }
+  .input-row { display: flex; gap: 8px; align-items: flex-end; }
+  #user-input { flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 9px 15px; font-size: 14px; resize: none; background: #fff; color: #111; font-family: inherit; outline: none; min-height: 40px; max-height: 100px; line-height: 1.5; transition: border-color 0.15s; }
+  #user-input:focus { border-color: #4285f4; }
+  #user-input::placeholder { color: #aaa; }
+  #send-btn { width: 38px; height: 38px; border-radius: 50%; background: #4285f4; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; flex-shrink: 0; }
+  #send-btn:hover { background: #3367d6; }
+  #send-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .input-tools { display: flex; gap: 7px; margin-top: 8px; flex-wrap: wrap; }
+  .tool-btn { font-size: 12px; padding: 4px 11px; border: 1px solid #e0e0e0; border-radius: 20px; background: #fff; cursor: pointer; color: #555; display: flex; align-items: center; gap: 4px; transition: background 0.12s; }
+  .tool-btn:hover { background: #f0f0f0; }
+
+  /* API Key modal */
+  #key-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; border-radius: 16px; z-index: 100; }
+  #key-modal { background: #fff; border-radius: 14px; padding: 24px 22px; width: 88%; max-width: 340px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); }
+  #key-modal .google-badge { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  #key-modal .google-badge span { font-size: 13px; font-weight: 600; color: #4285f4; }
+  #key-modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: #111; }
+  #key-modal p  { font-size: 13px; color: #666; margin-bottom: 14px; line-height: 1.6; }
+  #key-modal input { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 9px 12px; font-size: 13px; font-family: monospace; outline: none; margin-bottom: 12px; color: #111; }
+  #key-modal input:focus { border-color: #4285f4; }
+  #save-key-btn { width: 100%; padding: 10px; border-radius: 8px; background: #4285f4; color: #fff; border: none; font-size: 14px; font-weight: 500; cursor: pointer; }
+  #save-key-btn:hover { background: #3367d6; }
+  #key-link { font-size: 12px; color: #4285f4; text-align: center; display: block; margin-top: 10px; text-decoration: none; }
+  #key-note { font-size: 11px; color: #999; margin-top: 6px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- API Key Modal -->
+  <div id="key-overlay">
+    <div id="key-modal">
+      <div class="google-badge">
+        <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 29.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3 12.9 3 4 11.9 4 23s8.9 20 20 20c11 0 19.7-7.6 19.7-20 0-1.3-.1-2.7-.2-4z"/></svg>
+        <span>Google Gemini API</span>
+      </div>
+      <h2>API 키 입력</h2>
+      <p>Google AI Studio에서 발급받은 API 키를 입력하세요. 무료로 사용 가능합니다.</p>
+      <input type="password" id="api-key-input" placeholder="AIza..." />
+      <button id="save-key-btn">저장하고 시작하기</button>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" id="key-link">🔑 Google AI Studio에서 무료 키 발급받기 →</a>
+      <p id="key-note">키는 이 기기 브라우저에만 저장됩니다.</p>
+    </div>
+  </div>
+
+  <!-- Screen: Scenario Select -->
+  <div id="screen-select">
+    <div class="app-header">
+      <h1><i class="ti ti-messages" style="font-size:16px;margin-right:4px"></i> 영어 대화 연습</h1>
+      <button class="tool-btn" id="change-key-btn" style="margin-left:auto;font-size:11px;"><i class="ti ti-key"></i> API 키 변경</button>
+    </div>
+    <div class="scenario-grid">
+      <div class="scenario-card" data-role="barista" data-topic="Café ordering"><div class="scenario-icon">☕</div><div class="scenario-title">카페에서 주문</div><div class="scenario-desc">음료 주문, 커스텀 요청, 결제까지</div></div>
+      <div class="scenario-card" data-role="airport check-in staff" data-topic="Airport check-in"><div class="scenario-icon">✈️</div><div class="scenario-title">공항 체크인</div><div class="scenario-desc">수하물, 좌석 선택, 탑승 안내</div></div>
+      <div class="scenario-card" data-role="hotel receptionist" data-topic="Hotel check-in"><div class="scenario-icon">🏨</div><div class="scenario-title">호텔 체크인</div><div class="scenario-desc">예약 확인, 룸 요청, 편의시설</div></div>
+      <div class="scenario-card" data-role="store assistant" data-topic="Shopping"><div class="scenario-icon">🛍️</div><div class="scenario-title">쇼핑하기</div><div class="scenario-desc">사이즈, 교환, 환불 요청</div></div>
+      <div class="scenario-card" data-role="doctor" data-topic="Doctor visit"><div class="scenario-icon">🏥</div><div class="scenario-title">병원 진료</div><div class="scenario-desc">증상 설명, 처방, 의료 표현</div></div>
+      <div class="scenario-card" data-role="friendly colleague" data-topic="Small talk"><div class="scenario-icon">💬</div><div class="scenario-title">스몰톡</div><div class="scenario-desc">날씨, 주말, 취미 일상 대화</div></div>
+    </div>
+    <div class="level-bar">
+      <span>난이도:</span>
+      <button class="level-btn active" data-level="beginner">🟢 초급</button>
+      <button class="level-btn" data-level="intermediate">🟡 중급</button>
+      <button class="level-btn" data-level="advanced">🔴 고급</button>
+    </div>
+  </div>
+
+  <!-- Screen: Chat -->
+  <div id="screen-chat">
+    <div class="app-header">
+      <button class="back-btn" id="back-btn2"><i class="ti ti-arrow-left"></i></button>
+      <span class="scenario-tag" id="chat-title"></span>
+      <button class="end-btn" id="end-btn">대화 끝내기</button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+
+    <!-- 전체 재생 바 -->
+    <div id="play-all-bar">
+      <button id="play-all-btn"><i class="ti ti-player-play"></i> 전체 듣기</button>
+      <button id="stop-all-btn"><i class="ti ti-player-stop"></i> 정지</button>
+      <span id="play-status"></span>
+    </div>
+
+    <div class="chat-input-area">
+      <div class="input-row">
+        <textarea id="user-input" placeholder="영어로 입력하세요..." rows="1"></textarea>
+        <button id="send-btn"><i class="ti ti-send"></i></button>
+      </div>
+      <div class="input-tools">
+        <button class="tool-btn" id="hint-btn"><i class="ti ti-bulb"></i> 힌트</button>
+        <button class="tool-btn" id="translate-btn"><i class="ti ti-language"></i> 번역</button>
+        <button class="tool-btn" id="feedback-btn"><i class="ti ti-pencil"></i> 내 문장</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentScene = null;
+let currentLevel = 'beginner';
+let conversationHistory = [];
+let isLoading = false;
+let apiKey = localStorage.getItem('gemini_eng_api_key') || '';
+
+// TTS 상태
+let ttsQueue = [];
+let ttsPlaying = false;
+let currentUtterance = null;
+let activeTtsBtn = null;
+
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+const levelInstructions = {
+  beginner:     'Use simple, short sentences and common everyday vocabulary only. Speak slowly and clearly. Gently correct grammar mistakes by naturally incorporating the correct form in your response.',
+  intermediate: 'Use natural conversational English with common idioms and phrasal verbs. Correct mistakes subtly.',
+  advanced:     'Use natural native-speaker pace with idioms and colloquialisms. Point out unnatural phrasing. Be challenging.'
+};
+const levelNames = { beginner: '초급', intermediate: '중급', advanced: '고급' };
+
+// ── API Key ────────────────────────────────────────────
+const overlay = document.getElementById('key-overlay');
+const keyInput = document.getElementById('api-key-input');
+if (apiKey) overlay.style.display = 'none';
+
+document.getElementById('save-key-btn').addEventListener('click', () => {
+  const val = keyInput.value.trim();
+  if (!val) { alert('API 키를 입력해주세요.'); return; }
+  apiKey = val;
+  localStorage.setItem('gemini_eng_api_key', apiKey);
+  overlay.style.display = 'none';
+});
+document.getElementById('change-key-btn').addEventListener('click', () => {
+  keyInput.value = apiKey; overlay.style.display = 'flex';
+});
+
+// ── Level ──────────────────────────────────────────────
+document.querySelectorAll('.level-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLevel = btn.dataset.level;
+  });
+});
+
+// ── Scenario ───────────────────────────────────────────
+document.querySelectorAll('.scenario-card').forEach(card => {
+  card.addEventListener('click', () => startChat(card.dataset));
+});
+document.getElementById('back-btn2').addEventListener('click', goBack);
+
+async function startChat(data) {
+  currentScene = data;
+  conversationHistory = [];
+  stopAll();
+  document.getElementById('chat-title').textContent = data.topic + ' · ' + levelNames[currentLevel];
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('play-all-bar').classList.remove('visible');
+  document.getElementById('screen-select').style.display = 'none';
+  document.getElementById('screen-chat').style.display = 'flex';
+
+  const systemPrompt = `You are a ${data.role} in a realistic ${data.topic} scenario. ${levelInstructions[currentLevel]} Keep responses short (1-3 sentences max). Stay in character. Do not add labels or meta-commentary. Start by greeting the user as your character would.`;
+  const reply = await callGemini(systemPrompt, []);
+  if (reply) {
+    conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
+    addMessage('ai', reply);
+    document.getElementById('play-all-bar').classList.add('visible');
+  }
+}
+
+function goBack() {
+  stopAll();
+  document.getElementById('screen-select').style.display = 'flex';
+  document.getElementById('screen-chat').style.display = 'none';
+  currentScene = null;
+  conversationHistory = [];
+}
+
+// ── End conversation ────────────────────────────────────
+document.getElementById('end-btn').addEventListener('click', async () => {
+  if (conversationHistory.length < 2) { goBack(); return; }
+  stopAll();
+  const historyText = conversationHistory.map(m => `${m.role === 'model' ? 'AI' : 'User'}: ${m.parts[0].text}`).join('\n');
+  const prompt = `You are an English teacher. Review this conversation and provide brief, encouraging feedback in Korean.\nInclude:\n1) ✅ 잘한 점\n2) 💡 개선할 표현 1-2개 (더 자연스러운 표현 제시)\n3) 📌 오늘의 핵심 표현 2-3개\nKeep it friendly and concise.\n\nConversation:\n${historyText}`;
+  addInfoCard('📊 대화 분석 중...', '', 'amber');
+  const fb = await callGemini(prompt, []);
+  if (fb) {
+    document.querySelector('.info-card.amber:last-child')?.remove();
+    addInfoCard('📊 대화 피드백', fb, 'amber');
+  }
+});
+
+// ── Tool buttons ────────────────────────────────────────
+document.getElementById('hint-btn').addEventListener('click', async () => {
+  if (!currentScene) return;
+  const prompt = `The user is practicing English in a "${currentScene.topic}" scenario at ${currentLevel} level. Suggest 2-3 natural English phrases they could say next. For each phrase, briefly explain in Korean when to use it. Keep very concise.`;
+  const hint = await callGemini(prompt, []);
+  if (hint) addInfoCard('💡 힌트', hint, 'green');
+});
+document.getElementById('translate-btn').addEventListener('click', async () => {
+  const lastAi = [...conversationHistory].reverse().find(m => m.role === 'model');
+  if (!lastAi) return;
+  const result = await callGemini(`Translate to Korean naturally. Output only the translation:\n"${lastAi.parts[0].text}"`, []);
+  if (result) addInfoCard('🌐 번역', result, 'blue');
+});
+document.getElementById('feedback-btn').addEventListener('click', async () => {
+  const lastUser = [...conversationHistory].reverse().find(m => m.role === 'user');
+  if (!lastUser) return;
+  const prompt = `As an English teacher, briefly evaluate this sentence in Korean: "${lastUser.parts[0].text}"\n1) 문법적으로 맞나요? 2) 자연스럽나요? 3) 더 나은 표현이 있다면 제시해주세요. 짧고 친절하게.`;
+  const result = await callGemini(prompt, []);
+  if (result) addInfoCard('✏️ 내 문장 분석', result, 'green');
+});
+
+// ── Send message ────────────────────────────────────────
+const sendBtn = document.getElementById('send-btn');
+const inputEl = document.getElementById('user-input');
+sendBtn.addEventListener('click', sendMessage);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 100) + 'px';
+});
+
+async function sendMessage() {
+  const text = inputEl.value.trim();
+  if (!text || isLoading || !currentScene) return;
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  addMessage('user', text);
+  conversationHistory.push({ role: 'user', parts: [{ text }] });
+
+  const systemPrompt = `You are a ${currentScene.role} in a ${currentScene.topic} scenario. ${levelInstructions[currentLevel]} Keep responses short (1-3 sentences). Stay in character.`;
+  const reply = await callGemini(systemPrompt, conversationHistory);
+  if (reply) {
+    addMessage('ai', reply);
+    conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
+    getInlineFeedback(text);
+  }
+}
+
+// ── Inline feedback ─────────────────────────────────────
+async function getInlineFeedback(userText) {
+  const prompt = `You are an English teacher. Evaluate this sentence written by a Korean learner: "${userText}"
+
+Respond ONLY with a JSON object in this exact format (no markdown, no extra text):
+{"level":"good","grammar":"","natural":"","better":""}
+
+Rules:
+- level: "good" if correct and natural, "warn" if minor issues, "bad" if major errors
+- grammar: empty string if no grammar error, otherwise brief error description in Korean (max 20 chars)
+- natural: empty string if natural, otherwise brief note in Korean (max 20 chars)
+- better: empty string if no improvement needed, otherwise a better English expression (max 40 chars)`;
+
+  const raw = await callGeminiFeedback(prompt);
+  if (!raw) return;
+  try {
+    const fb = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    showInlineFeedback(fb);
+  } catch(e) {}
+}
+
+function showInlineFeedback(fb) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `inline-feedback ${fb.level}`;
+  const icon = fb.level === 'good' ? '✅' : fb.level === 'warn' ? '💡' : '❌';
+  const label = fb.level === 'good' ? '자연스러운 표현이에요!' : '';
+  let html = `<div class="fb-row"><span>${icon}</span><span>${label}</span></div>`;
+  if (fb.grammar) html += `<div class="fb-row"><span>📝</span><span>문법: ${fb.grammar}</span></div>`;
+  if (fb.natural) html += `<div class="fb-row"><span>🗣️</span><span>${fb.natural}</span></div>`;
+  if (fb.better)  html += `<div class="fb-row"><span>✨</span><span>더 자연스럽게: <strong>${fb.better}</strong></span></div>`;
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── TTS ────────────────────────────────────────────────
+function getBestVoice() {
+  const voices = speechSynthesis.getVoices();
+  // 자연스러운 영어 목소리 우선순위
+  const preferred = ['Samantha', 'Karen', 'Moira', 'Daniel', 'Alex', 'Google US English', 'Google UK English Female'];
+  for (const name of preferred) {
+    const v = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'));
+    if (v) return v;
+  }
+  return voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en')) || null;
+}
+
+function speakText(text, btn) {
+  if (!('speechSynthesis' in window)) { alert('이 브라우저는 음성 재생을 지원하지 않아요.'); return; }
+  stopAll();
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+  utter.rate = 0.9;
+  utter.pitch = 1.0;
+
+  const setVoice = () => {
+    const voice = getBestVoice();
+    if (voice) utter.voice = voice;
+  };
+  if (speechSynthesis.getVoices().length) setVoice();
+  else speechSynthesis.onvoiceschanged = setVoice;
+
+  if (btn) {
+    activeTtsBtn = btn;
+    btn.classList.add('playing');
+    btn.innerHTML = '<i class="ti ti-player-pause"></i> 재생 중';
+  }
+  utter.onend = () => {
+    if (activeTtsBtn) { activeTtsBtn.classList.remove('playing'); activeTtsBtn.innerHTML = '<i class="ti ti-volume"></i> 듣기'; activeTtsBtn = null; }
+    currentUtterance = null;
+  };
+  utter.onerror = () => {
+    if (activeTtsBtn) { activeTtsBtn.classList.remove('playing'); activeTtsBtn.innerHTML = '<i class="ti ti-volume"></i> 듣기'; activeTtsBtn = null; }
+    currentUtterance = null;
+  };
+  currentUtterance = utter;
+  speechSynthesis.speak(utter);
+}
+
+// 더 자연스러운 표현으로 변환 후 읽기
+async function speakNatural(text, btn) {
+  if (btn) { btn.innerHTML = '<i class="ti ti-loader"></i> 변환 중...'; btn.disabled = true; }
+  const prompt = `Rewrite this English sentence to sound more natural and fluent, like a native speaker would say it in casual conversation. Output ONLY the rewritten sentence, nothing else:\n"${text}"`;
+  const natural = await callGeminiFeedback(prompt);
+  if (btn) { btn.innerHTML = '<i class="ti ti-star"></i> 자연스럽게'; btn.disabled = false; }
+  speakText(natural || text, btn);
+}
+
+function stopAll() {
+  speechSynthesis.cancel();
+  ttsQueue = [];
+  ttsPlaying = false;
+  currentUtterance = null;
+  if (activeTtsBtn) {
+    activeTtsBtn.classList.remove('playing');
+    activeTtsBtn.innerHTML = '<i class="ti ti-volume"></i> 듣기';
+    activeTtsBtn = null;
+  }
+  document.getElementById('play-status').textContent = '';
+  // 전체 재생 중인 버튼 복원
+  document.querySelectorAll('.tts-btn.playing').forEach(b => {
+    b.classList.remove('playing');
+    if (b.dataset.type === 'natural') b.innerHTML = '<i class="ti ti-star"></i> 자연스럽게';
+    else b.innerHTML = '<i class="ti ti-volume"></i> 듣기';
+  });
+}
+
+// 전체 대화 순차 재생
+async function playAll() {
+  stopAll();
+  ttsPlaying = true;
+
+  // 모든 말풍선 텍스트 수집
+  const bubbles = [...document.querySelectorAll('.msg-bubble')];
+  if (!bubbles.length) return;
+
+  const statusEl = document.getElementById('play-status');
+  statusEl.textContent = '전체 대화 변환 중...';
+
+  // AI 말풍선은 자연스러운 표현으로 일괄 변환
+  const texts = [];
+  for (const b of bubbles) {
+    const isAi = b.closest('.msg')?.classList.contains('ai');
+    if (isAi) {
+      const prompt = `Rewrite this English sentence to sound more natural and fluent, like a native speaker in casual conversation. Output ONLY the rewritten sentence:\n"${b.textContent}"`;
+      const natural = await callGeminiFeedback(prompt);
+      texts.push({ text: natural || b.textContent, role: 'ai' });
+    } else {
+      texts.push({ text: b.textContent, role: 'user' });
+    }
+  }
+
+  statusEl.textContent = `재생 중... (0/${texts.length})`;
+  let idx = 0;
+
+  function playNext() {
+    if (!ttsPlaying || idx >= texts.length) {
+      statusEl.textContent = idx >= texts.length ? '재생 완료' : '';
+      ttsPlaying = false;
+      return;
+    }
+    const item = texts[idx];
+    statusEl.textContent = `재생 중... (${idx+1}/${texts.length}) — ${item.role === 'ai' ? '🤖 AI' : '👤 나'}`;
+    const utter = new SpeechSynthesisUtterance(item.text);
+    utter.lang = 'en-US'; utter.rate = 0.9; utter.pitch = 1.0;
+    const voice = getBestVoice(); if (voice) utter.voice = voice;
+    utter.onend = () => { idx++; playNext(); };
+    utter.onerror = () => { idx++; playNext(); };
+    currentUtterance = utter;
+    speechSynthesis.speak(utter);
+  }
+  playNext();
+}
+
+document.getElementById('play-all-btn').addEventListener('click', playAll);
+document.getElementById('stop-all-btn').addEventListener('click', () => {
+  stopAll();
+  document.getElementById('play-status').textContent = '정지됨';
+});
+
+// voices 로드 보장
+if (speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = () => {};
+}
+
+// ── DOM helpers ─────────────────────────────────────────
+function addMessage(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const msgEl = document.createElement('div');
+  msgEl.className = `msg ${role}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = role === 'ai' ? '🤖' : '👤';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = text;
+
+  // TTS 버튼 행
+  const ttsRow = document.createElement('div');
+  ttsRow.className = 'tts-row';
+
+  const playBtn = document.createElement('button');
+  playBtn.className = 'tts-btn';
+  playBtn.dataset.type = 'play';
+  playBtn.innerHTML = '<i class="ti ti-volume"></i> 듣기';
+  playBtn.addEventListener('click', () => speakText(text, playBtn));
+
+  const naturalBtn = document.createElement('button');
+  naturalBtn.className = 'tts-btn';
+  naturalBtn.dataset.type = 'natural';
+  naturalBtn.innerHTML = '<i class="ti ti-star"></i> 자연스럽게';
+  naturalBtn.addEventListener('click', () => speakNatural(text, naturalBtn));
+
+  ttsRow.appendChild(playBtn);
+  ttsRow.appendChild(naturalBtn);
+
+  wrap.appendChild(bubble);
+  wrap.appendChild(ttsRow);
+  msgEl.appendChild(avatar);
+  msgEl.appendChild(wrap);
+  msgs.appendChild(msgEl);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addInfoCard(label, text, color) {
+  const msgs = document.getElementById('chat-messages');
+  const card = document.createElement('div');
+  card.className = `info-card ${color}`;
+  card.innerHTML = `<div class="card-label">${label}</div><div>${text.replace(/\n/g,'<br>')}</div>`;
+  msgs.appendChild(card);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// ── API calls ───────────────────────────────────────────
+async function callGemini(systemInstruction, history) {
+  if (isLoading) return null;
+  if (!apiKey) { overlay.style.display = 'flex'; return null; }
+  isLoading = true; sendBtn.disabled = true;
+
+  const thinkingEl = document.createElement('div');
+  thinkingEl.className = 'msg ai';
+  thinkingEl.innerHTML = `<div class="msg-avatar">🤖</div><div class="msg-wrap"><div class="msg-bubble"><div class="thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div></div>`;
+  const msgs = document.getElementById('chat-messages');
+  msgs.appendChild(thinkingEl); msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    const body = { contents: history.length ? history : [{ role:'user', parts:[{text:'Start.'}] }] };
+    if (systemInstruction) body.systemInstruction = { parts:[{text:systemInstruction}] };
+    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    const data = await res.json();
+    thinkingEl.remove(); isLoading = false; sendBtn.disabled = false;
+    if (data.error) { addInfoCard('⚠️ 오류', data.error.message, 'amber'); return null; }
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  } catch(e) {
+    thinkingEl.remove(); isLoading = false; sendBtn.disabled = false;
+    addInfoCard('⚠️ 연결 오류', '다시 시도해주세요: '+e.message, 'amber'); return null;
+  }
+}
+
+async function callGeminiFeedback(prompt) {
+  if (!apiKey) return null;
+  try {
+    const body = { contents:[{role:'user',parts:[{text:prompt}]}], generationConfig:{temperature:0.1} };
+    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch(e) { return null; }
+}
+// ── Service Worker 등록 ─────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('SW registered'))
+      .catch(e => console.log('SW error:', e));
+  });
+}
+</script>
+</body>
+</html>
