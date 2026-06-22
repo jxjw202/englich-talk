@@ -110,6 +110,25 @@
   .info-card.blue  .card-label { color: #1a4fa0; }
   .info-card.amber .card-label { color: #8a6200; }
 
+  /* 설명 카드 */
+  .explain-card { background: #fff; border: 1px solid #e8e8e8; border-left: 3px solid #4285f4; border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.65; color: #222; }
+  .explain-card .exp-head { font-size: 12px; font-weight: 700; color: #1a4fa0; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+  .explain-card .exp-origin { background: #f0f6ff; border-radius: 8px; padding: 7px 10px; font-size: 13px; color: #1a4fa0; font-weight: 600; margin-bottom: 10px; }
+  .explain-card .exp-section-label { font-size: 11px; font-weight: 700; color: #888; margin: 10px 0 5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .explain-card .exp-interp { font-weight: 600; color: #111; margin: 3px 0; }
+  .explain-card .exp-list { list-style: none; padding: 0; margin: 2px 0; }
+  .explain-card .exp-list > li { margin: 5px 0; padding-left: 2px; }
+  .explain-card .exp-en { font-weight: 700; color: #111; }
+  .explain-card .exp-ko { color: #444; }
+  .explain-card .exp-note { font-size: 12px; color: #777; padding-left: 12px; margin-top: 2px; }
+  .explain-card .exp-summary { margin-top: 10px; padding-top: 9px; border-top: 1px solid #eee; color: #333; font-size: 12.5px; }
+
+  /* 한국어→영어 번역 카드 */
+  .translate-card { align-self: flex-end; max-width: 88%; background: #eef4ff; border: 1px solid #c7d9fa; border-radius: 12px; padding: 8px 12px; font-size: 12.5px; line-height: 1.6; animation: fadeIn 0.3s ease; }
+  .translate-card .tc-label { font-size: 10px; font-weight: 700; color: #1a4fa0; margin-bottom: 4px; letter-spacing: 0.03em; }
+  .translate-card .tc-ko { color: #666; }
+  .translate-card .tc-en { color: #1a4fa0; font-weight: 700; margin-top: 2px; }
+
   /* 전체 재생 바 */
   #play-all-bar {
     display: none; align-items: center; gap: 8px;
@@ -217,11 +236,12 @@
 
     <div class="chat-input-area">
       <div class="input-row">
-        <textarea id="user-input" placeholder="영어로 입력하세요..." rows="1"></textarea>
+        <textarea id="user-input" placeholder="영어 또는 한국어로 입력하세요..." rows="1"></textarea>
         <button id="send-btn"><i class="ti ti-send"></i></button>
       </div>
       <div class="input-tools">
         <button class="tool-btn" id="hint-btn"><i class="ti ti-bulb"></i> 힌트</button>
+        <button class="tool-btn" id="explain-btn"><i class="ti ti-book"></i> 설명</button>
         <button class="tool-btn" id="translate-btn"><i class="ti ti-language"></i> 번역</button>
         <button class="tool-btn" id="feedback-btn"><i class="ti ti-pencil"></i> 내 문장</button>
       </div>
@@ -337,6 +357,61 @@ document.getElementById('translate-btn').addEventListener('click', async () => {
   const result = await callGemini(`Translate to Korean naturally. Output only the translation:\n"${lastAi.parts[0].text}"`, []);
   if (result) addInfoCard('🌐 번역', result, 'blue');
 });
+
+// ── 설명 (AI 문장 상세 풀이) ───────────────────────────────
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('explain-btn').addEventListener('click', async () => {
+  const lastAi = [...conversationHistory].reverse().find(m => m.role === 'model');
+  if (!lastAi) return;
+  const en = lastAi.parts[0].text;
+  const prompt = `You are an English teacher explaining an English sentence to a Korean learner.
+Sentence: "${en}"
+
+Respond ONLY with a JSON object (no markdown fences, no extra text):
+{"interpretations":["전체 문장의 자연스러운 한국어 해석 1","해석 2 (선택)"],"breakdown":[{"en":"영어 표현/구","ko":"한국어 뜻","note":"언제 어떻게 쓰는지 짧은 한국어 설명 (선택)"}],"summary":"이 표현이 어떤 상황에서 쓰이는지 한 줄 한국어 요약"}
+
+Rules:
+- interpretations: 1-2 natural Korean translations of the whole sentence
+- breakdown: split the sentence into meaningful chunks and explain each in Korean
+- summary: explain in Korean when/how this expression is used
+- Keep all Korean concise and friendly. Output valid JSON only.`;
+  const raw = await callGemini(prompt, []);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    addExplanationCard(en, data);
+  } catch (e) {
+    addInfoCard('📖 설명', raw, 'blue');
+  }
+});
+
+function addExplanationCard(en, data) {
+  const msgs = document.getElementById('chat-messages');
+  const card = document.createElement('div');
+  card.className = 'explain-card';
+  let html = `<div class="exp-head"><i class="ti ti-book"></i> 문장 설명</div>`;
+  html += `<div class="exp-origin">"${escapeHtml(en)}"</div>`;
+  if (Array.isArray(data.interpretations) && data.interpretations.length) {
+    html += `<div class="exp-section-label">자연스러운 해석</div>`;
+    data.interpretations.forEach(i => { html += `<div class="exp-interp">"${escapeHtml(i)}"</div>`; });
+  }
+  if (Array.isArray(data.breakdown) && data.breakdown.length) {
+    html += `<div class="exp-section-label">표현별 설명</div><ul class="exp-list">`;
+    data.breakdown.forEach(b => {
+      html += `<li><span class="exp-en">${escapeHtml(b.en || '')}</span> → <span class="exp-ko">${escapeHtml(b.ko || '')}</span>`;
+      if (b.note) html += `<div class="exp-note">${escapeHtml(b.note)}</div>`;
+      html += `</li>`;
+    });
+    html += `</ul>`;
+  }
+  if (data.summary) html += `<div class="exp-summary">💡 ${escapeHtml(data.summary)}</div>`;
+  card.innerHTML = html;
+  msgs.appendChild(card);
+  msgs.scrollTop = msgs.scrollHeight;
+}
 document.getElementById('feedback-btn').addEventListener('click', async () => {
   const lastUser = [...conversationHistory].reverse().find(m => m.role === 'user');
   if (!lastUser) return;
@@ -358,10 +433,27 @@ inputEl.addEventListener('input', () => {
 });
 
 async function sendMessage() {
-  const text = inputEl.value.trim();
-  if (!text || isLoading || !currentScene) return;
+  const raw = inputEl.value.trim();
+  if (!raw || isLoading || !currentScene) return;
   inputEl.value = '';
   inputEl.style.height = 'auto';
+
+  let text = raw;
+  const hasKorean = /[가-힣]/.test(raw);
+
+  // 한국어로 입력하면 → 상황/난이도에 맞는 영어로 번역 후 그 영어로 대화 진행
+  if (hasKorean) {
+    sendBtn.disabled = true;
+    const tprompt = `Translate this Korean sentence into natural, conversational English a person would actually say in a "${currentScene.topic}" situation. Match a ${currentLevel} level learner. Output ONLY the English sentence, nothing else:\n"${raw}"`;
+    const translated = await callGeminiFeedback(tprompt);
+    sendBtn.disabled = false;
+    if (translated) {
+      const en = translated.replace(/^["']|["']$/g, '').trim();
+      addTranslationCard(raw, en);
+      text = en;
+    }
+  }
+
   addMessage('user', text);
   conversationHistory.push({ role: 'user', parts: [{ text }] });
 
@@ -370,8 +462,20 @@ async function sendMessage() {
   if (reply) {
     addMessage('ai', reply);
     conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
-    getInlineFeedback(text);
+    if (!hasKorean) getInlineFeedback(text);
   }
+}
+
+// 한국어 입력 → 영어 변환 결과 카드
+function addTranslationCard(ko, en) {
+  const msgs = document.getElementById('chat-messages');
+  const card = document.createElement('div');
+  card.className = 'translate-card';
+  card.innerHTML = `<div class="tc-label">🇰🇷 → 🇺🇸 이렇게 말해보세요</div>` +
+    `<div class="tc-ko">"${escapeHtml(ko)}"</div>` +
+    `<div class="tc-en">"${escapeHtml(en)}"</div>`;
+  msgs.appendChild(card);
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 // ── Inline feedback ─────────────────────────────────────
