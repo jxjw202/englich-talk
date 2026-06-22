@@ -263,7 +263,9 @@ let ttsPlaying = false;
 let currentUtterance = null;
 let activeTtsBtn = null;
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
+const GEMINI_URL      = GEMINI_BASE + 'gemini-2.5-flash:generateContent';       // 대화 (품질)
+const GEMINI_LITE_URL = GEMINI_BASE + 'gemini-2.5-flash-lite:generateContent';  // 보조 (한도 여유)
 
 const levelInstructions = {
   beginner:     'Use simple, short sentences and common everyday vocabulary only. Speak slowly and clearly. Gently correct grammar mistakes by naturally incorporating the correct form in your response.',
@@ -597,19 +599,12 @@ async function playAll() {
   if (!bubbles.length) return;
 
   const statusEl = document.getElementById('play-status');
-  statusEl.textContent = '전체 대화 변환 중...';
 
-  // AI 말풍선은 자연스러운 표현으로 일괄 변환
+  // 말풍선 텍스트를 그대로 수집 (API 호출 없이 → 사용량 절약)
   const texts = [];
   for (const b of bubbles) {
     const isAi = b.closest('.msg')?.classList.contains('ai');
-    if (isAi) {
-      const prompt = `Rewrite this English sentence to sound more natural and fluent, like a native speaker in casual conversation. Output ONLY the rewritten sentence:\n"${b.textContent}"`;
-      const natural = await callGeminiFeedback(prompt);
-      texts.push({ text: natural || b.textContent, role: 'ai' });
-    } else {
-      texts.push({ text: b.textContent, role: 'user' });
-    }
+    texts.push({ text: b.textContent, role: isAi ? 'ai' : 'user' });
   }
 
   statusEl.textContent = `재생 중... (0/${texts.length})`;
@@ -718,7 +713,7 @@ async function callGemini(systemInstruction, history) {
     });
     const data = await res.json();
     thinkingEl.remove(); isLoading = false; sendBtn.disabled = false;
-    if (data.error) { addInfoCard('⚠️ 오류', data.error.message, 'amber'); return null; }
+    if (data.error) { addInfoCard('⚠️ 오류', geminiErrMsg(data.error), 'amber'); return null; }
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   } catch(e) {
     thinkingEl.remove(); isLoading = false; sendBtn.disabled = false;
@@ -726,11 +721,22 @@ async function callGemini(systemInstruction, history) {
   }
 }
 
+// 사용량 초과 등 오류를 친절한 한국어로 변환
+function geminiErrMsg(err) {
+  const m = err.message || '알 수 없는 오류';
+  if (err.code === 429 || /quota|RESOURCE_EXHAUSTED|exceeded/i.test(m)) {
+    const r = m.match(/retry in ([\d.]+)s/i);
+    const sec = r ? Math.ceil(parseFloat(r[1])) : null;
+    return `무료 사용량(분당 요청 수)을 초과했어요.${sec ? ` 약 ${sec}초 후` : ' 잠시 후'} 다시 시도해 주세요.\n\n자주 발생하면: ① "전체 듣기" 사용을 줄이거나 ② Google AI Studio에서 결제를 등록해 한도를 높일 수 있어요.`;
+  }
+  return m;
+}
+
 async function callGeminiFeedback(prompt) {
   if (!apiKey) return null;
   try {
     const body = { contents:[{role:'user',parts:[{text:prompt}]}], generationConfig:{temperature:0.1} };
-    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const res = await fetch(`${GEMINI_LITE_URL}?key=${apiKey}`, {
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
     const data = await res.json();
